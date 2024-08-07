@@ -1,23 +1,30 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
-
-# Add your action's branding here. This will appear on the GitHub Marketplace.
-branding:
-  icon: 'heart'
-  color: 'red'
+name: 'Linear Status Transition'
+description: 'Transition lenear tickets status, adds labels'
+author: '44pixels'
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  api_key:
+    description: 'Linear Personal API key'
     required: true
-    default: '1000'
-
-# Define your outputs here.
-outputs:
-  time:
-    description: 'Your output description here'
+  team_key:
+    description: 'Linear team key, usually issues are created with team key prefix, e.g. CHAT-137'
+    required: true
+  issue_identifiers:
+    description: 'One or more issues to update, for example see ./github/workflows/ci.yml'
+    required: true
+  add_labels:
+    description: 'Labels names to add. Case sensitive.'
+    required: false
+  remove_labels:
+    description: 'Labels names to remove. Case sensitive.'
+    required: false
+  transition_to:
+    description: 'Name of the state you want issues to be transition to. Case sensitive.'
+    required: true
+  transition_from:
+    description: 'Whitelist of statuses the transition is allowed from. Case sensitive.'
+    required: false
 
 runs:
   using: node20
