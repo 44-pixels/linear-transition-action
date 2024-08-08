@@ -24930,6 +24930,189 @@ exports["default"] = _default;
 
 /***/ }),
 
+/***/ 8919:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const core = __importStar(__nccwpck_require__(2186));
+class Labeler {
+    client;
+    team;
+    constructor(client, team) {
+        this.client = client;
+        this.team = team;
+    }
+    // Add labels to the issue
+    // If labels does not exist - creates them in a scope of a team
+    //
+    // Accepts grouped labels in a format "version/v0.0.1"
+    async addLabels(issue, labelNames) {
+        const labels = await this.findOrCreateLabels(labelNames);
+        return await Promise.all(labels.map(async (label) => await this.client.issueAddLabel(issue.id, label.id)));
+    }
+    // Removes labels from issue. Does not delete label from Linear
+    //
+    // Accepts grouped labels in a format "version/v0.0.1"
+    async removeLabels(issue, labelNames) {
+        const labels = await this.findLabels(labelNames);
+        const foundLabels = Object.keys(labels);
+        if (foundLabels.length !== labelNames.length) {
+            core.setFailed(`Found ${JSON.stringify(foundLabels)}, while expected ${JSON.stringify(labelNames)}`);
+            process.exit(1);
+        }
+        await Promise.all(Object.values(labels).map(label => {
+            this.client.issueRemoveLabel(issue.id, label.id);
+        }));
+    }
+    // Find everything that's possible and tries to create the rest.
+    async findOrCreateLabels(labelNames) {
+        const foundLabels = await this.findLabels(labelNames);
+        const notFoundLabelNames = labelNames.filter(name => !foundLabels[name]);
+        const newLabels = await this.createLabels(notFoundLabelNames);
+        return [...Object.values(foundLabels), ...Object.values(newLabels)];
+    }
+    async createLabels(labelNames) {
+        const labels = {};
+        await Promise.all(labelNames.map(async (name) => {
+            const label = await this.createLabel(name);
+            core.info(`Label "${name}" was created.`);
+            labels[name] = label;
+        }));
+        return labels;
+    }
+    // Linear supports nested labels, it's useful for example for versions.
+    // However, the way to create them is to pass parentId to each label.
+    // So, we have to create each nested label 1 by 1 starting from the root one.
+    // This method does it recursively.
+    //
+    async createLabel(name, parentId) {
+        const [head, ...tail] = name.split('/');
+        let label = await this.findLabel(head, parentId);
+        if (!label) {
+            const params = {
+                teamId: this.team.id,
+                name: head
+            };
+            if (parentId) {
+                params.parentId = parentId;
+            }
+            const labelResponse = await this.client.createIssueLabel(params);
+            const issueLabel = await labelResponse?.issueLabel;
+            if (issueLabel?.id) {
+                label = issueLabel;
+            }
+        }
+        if (!label) {
+            core.setFailed(`Label ${name} was not created! Failing`);
+            process.exit(1);
+        }
+        if (tail.length > 0) {
+            return await this.createLabel(tail.join('/'), label.id);
+        }
+        else {
+            return label;
+        }
+    }
+    // It fetches all labels that it can find and creates a map of key (might be nested, that's why) and label entity.
+    async findLabels(labelNames) {
+        const labels = await this.fetchLabels(labelNames);
+        return labelNames.reduce((memo, name) => {
+            const topName = name.split('/').at(-1);
+            const label = labels.find(_ => _.name === topName);
+            if (label) {
+                memo[name] = label;
+            }
+            return memo;
+        }, {});
+    }
+    // This method searches for label by NOT NESTED name and it's parentId
+    // I decided not to go with generic nested implementation with nested name support, etc.
+    // because I don't need it for my purposes. Sorry, feature me
+    async findLabel(name, parentId) {
+        const filter = {
+            name: {
+                eq: name
+            }
+        };
+        if (parentId) {
+            filter.parent = { id: { eq: parentId } };
+        }
+        const labels = await this.team.labels({ filter });
+        return labels?.nodes?.at(0);
+    }
+    // This method gets an array of label names e.g. ['approved', 'version/v0.0.1']
+    // and fetches them all.
+    //
+    async fetchLabels(labels) {
+        const filter = {};
+        filter.or = labels.map(label => this.buildFilterByName(label));
+        return (await this.team.labels({ filter })).nodes;
+    }
+    // Instead of being able to pass nested labels as it is (e.g. 'version/v0.0.1'),
+    // we have to pass parentId to each label.
+    //
+    // So, for example for label 'test/fest/v0.0.1' we have to provide such filter
+    //
+    // {
+    //   name: {
+    //     eq: "v0.0.1"
+    //   },
+    //   parent: {
+    //     name: {
+    //       eq: "fest",
+    //     },
+    //     parent: {
+    //       name: {
+    //         eq: "test"
+    //       },
+    //       parent: {}
+    //     }
+    //   }
+    // }
+    //
+    buildFilterByName(name) {
+        const filter = {};
+        name
+            .split('/')
+            .reverse()
+            .reduce((memo, label) => {
+            memo.name = { eq: label };
+            memo.parent = {};
+            return memo.parent;
+        }, filter);
+        return filter;
+    }
+}
+exports["default"] = Labeler;
+
+
+/***/ }),
+
 /***/ 399:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -25012,9 +25195,13 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const sdk_1 = __nccwpck_require__(8851);
+const labeler_1 = __importDefault(__nccwpck_require__(8919));
 // This is the main runner class
 // It's run method calls private methods (steps) in a proper order
 class Runner {
@@ -25026,10 +25213,25 @@ class Runner {
     // Runs steps in proper order
     async run(inputs) {
         this.team = await this.fetchTeam(inputs.teamKey);
-        const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom);
-        const { addLabelIds, removeLabelIds } = await this.fetchLabels(inputs.addLabels, inputs.removeLabels);
         const issues = await this.fetchIssues(inputs.issueNumbers);
-        await this.updateIssues(issues, transitionToStateId, transitionFromStateIds, addLabelIds, removeLabelIds);
+        if (inputs.transitionTo) {
+            const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom);
+            await this.updateIssues(issues, transitionToStateId, transitionFromStateIds);
+        }
+        await this.addLabels(issues, inputs.addLabels);
+        await this.removeLabels(issues, inputs.removeLabels);
+    }
+    async addLabels(issues, labels) {
+        const labeler = new labeler_1.default(this.client, this.team);
+        for await (const issue of issues) {
+            labeler.addLabels(issue, labels);
+        }
+    }
+    async removeLabels(issues, labels) {
+        const labeler = new labeler_1.default(this.client, this.team);
+        for await (const issue of issues) {
+            labeler.removeLabels(issue, labels);
+        }
     }
     // Fetches Linear team
     // Fails action if not found
@@ -25061,23 +25263,6 @@ class Runner {
             transitionFromStateIds: transitionFromStates.map(state => state.id)
         };
     }
-    // Fetches labels (to get their ids). And splits them into 2 groups (to remove / to add)
-    // Fails action if any of provided (addLabels, removeLabels) not found on Linear
-    async fetchLabels(addLabelNames, removeLabelNames) {
-        const response = await this.team.labels({
-            filter: { name: { in: [...new Set([...addLabelNames, ...removeLabelNames])] } }
-        });
-        const addLabelNodes = response.nodes.filter(label => addLabelNames.includes(label.name));
-        core.debug(`Add labels found: ${JSON.stringify(addLabelNodes)}`);
-        this.assertLength(addLabelNodes, addLabelNames);
-        const removeLabelNodes = response.nodes.filter(label => removeLabelNames.includes(label.name));
-        core.debug(`Remove labels found: ${JSON.stringify(removeLabelNodes)}`);
-        this.assertLength(removeLabelNodes, removeLabelNames);
-        return {
-            addLabelIds: addLabelNodes.map(label => label.id),
-            removeLabelIds: removeLabelNodes.map(label => label.id)
-        };
-    }
     // Fetches issues to update.
     // Fails action if any of provided issues not found on Linear
     async fetchIssues(issueNumbers) {
@@ -25091,14 +25276,14 @@ class Runner {
         this.assertLength(response.nodes, issueNumbers);
         return response.nodes;
     }
-    async updateIssues(issues, transitionToId, transitionFromIds, toAddLabelIds, toRemoveLabelIds) {
-        const updatePromises = issues.map(async (issue) => this.updateIssue(issue, transitionToId, transitionFromIds, toAddLabelIds, toRemoveLabelIds));
+    async updateIssues(issues, transitionToId, transitionFromIds) {
+        const updatePromises = issues.map(async (issue) => this.updateIssue(issue, transitionToId, transitionFromIds));
         await Promise.all(updatePromises);
     }
     // This method is designed not to fail other updates,
     // since if previous validations were passed, then we can proceed.
     // Instead it notifies user about failures, but does not exit the process
-    async updateIssue(issue, transitionToId, transitionFromIds, toAddLabelIds, toRemoveLabelIds) {
+    async updateIssue(issue, transitionToId, transitionFromIds) {
         try {
             const state = await issue.state;
             if (!state) {
@@ -25109,8 +25294,7 @@ class Runner {
                 core.warning(`Issue ${issue.identifier} is not in whitelisted state (${state.name}). Skipping`);
                 return;
             }
-            const compoundLabelIds = [...new Set([...issue.labelIds, ...toAddLabelIds])].filter(id => !toRemoveLabelIds.includes(id));
-            await issue.update({ stateId: transitionToId, labelIds: compoundLabelIds });
+            await issue.update({ stateId: transitionToId });
             core.info(`Issue ${issue.identifier} updated!`);
         }
         catch (error) {

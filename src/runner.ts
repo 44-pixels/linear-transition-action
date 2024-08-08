@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import { Issue, LinearClient, Team } from '@linear/sdk'
+import Labeler from './labeler'
 
 interface Measurable {
   length: number
@@ -28,11 +29,31 @@ export default class Runner {
   // Runs steps in proper order
   async run(inputs: Inputs): Promise<void> {
     this.team = await this.fetchTeam(inputs.teamKey)
-    const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom)
-    const { addLabelIds, removeLabelIds } = await this.fetchLabels(inputs.addLabels, inputs.removeLabels)
     const issues = await this.fetchIssues(inputs.issueNumbers)
 
-    await this.updateIssues(issues, transitionToStateId, transitionFromStateIds, addLabelIds, removeLabelIds)
+    if (inputs.transitionTo) {
+      const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom)
+      await this.updateIssues(issues, transitionToStateId, transitionFromStateIds)
+    }
+
+    await this.addLabels(issues, inputs.addLabels)
+    await this.removeLabels(issues, inputs.removeLabels)
+  }
+
+  private async addLabels(issues: Issue[], labels: string[]): Promise<void> {
+    const labeler = new Labeler(this.client, this.team)
+
+    for await (const issue of issues) {
+      labeler.addLabels(issue, labels)
+    }
+  }
+
+  private async removeLabels(issues: Issue[], labels: string[]): Promise<void> {
+    const labeler = new Labeler(this.client, this.team)
+
+    for await (const issue of issues) {
+      labeler.removeLabels(issue, labels)
+    }
   }
 
   // Fetches Linear team
@@ -72,27 +93,6 @@ export default class Runner {
     }
   }
 
-  // Fetches labels (to get their ids). And splits them into 2 groups (to remove / to add)
-  // Fails action if any of provided (addLabels, removeLabels) not found on Linear
-  private async fetchLabels(addLabelNames: string[], removeLabelNames: string[]): Promise<{ addLabelIds: string[]; removeLabelIds: string[] }> {
-    const response = await this.team.labels({
-      filter: { name: { in: [...new Set([...addLabelNames, ...removeLabelNames])] } }
-    })
-
-    const addLabelNodes = response.nodes.filter(label => addLabelNames.includes(label.name))
-    core.debug(`Add labels found: ${JSON.stringify(addLabelNodes)}`)
-    this.assertLength(addLabelNodes, addLabelNames)
-
-    const removeLabelNodes = response.nodes.filter(label => removeLabelNames.includes(label.name))
-    core.debug(`Remove labels found: ${JSON.stringify(removeLabelNodes)}`)
-    this.assertLength(removeLabelNodes, removeLabelNames)
-
-    return {
-      addLabelIds: addLabelNodes.map(label => label.id),
-      removeLabelIds: removeLabelNodes.map(label => label.id)
-    }
-  }
-
   // Fetches issues to update.
   // Fails action if any of provided issues not found on Linear
   private async fetchIssues(issueNumbers: number[]): Promise<Issue[]> {
@@ -109,15 +109,15 @@ export default class Runner {
     return response.nodes
   }
 
-  private async updateIssues(issues: Issue[], transitionToId: string, transitionFromIds: string[], toAddLabelIds: string[], toRemoveLabelIds: string[]): Promise<void> {
-    const updatePromises = issues.map(async issue => this.updateIssue(issue, transitionToId, transitionFromIds, toAddLabelIds, toRemoveLabelIds))
+  private async updateIssues(issues: Issue[], transitionToId: string, transitionFromIds: string[]): Promise<void> {
+    const updatePromises = issues.map(async issue => this.updateIssue(issue, transitionToId, transitionFromIds))
     await Promise.all(updatePromises)
   }
 
   // This method is designed not to fail other updates,
   // since if previous validations were passed, then we can proceed.
   // Instead it notifies user about failures, but does not exit the process
-  private async updateIssue(issue: Issue, transitionToId: string, transitionFromIds: string[], toAddLabelIds: string[], toRemoveLabelIds: string[]): Promise<void> {
+  private async updateIssue(issue: Issue, transitionToId: string, transitionFromIds: string[]): Promise<void> {
     try {
       const state = await issue.state
 
@@ -131,8 +131,7 @@ export default class Runner {
         return
       }
 
-      const compoundLabelIds = [...new Set([...issue.labelIds, ...toAddLabelIds])].filter(id => !toRemoveLabelIds.includes(id))
-      await issue.update({ stateId: transitionToId, labelIds: compoundLabelIds })
+      await issue.update({ stateId: transitionToId })
       core.info(`Issue ${issue.identifier} updated!`)
     } catch (error) {
       core.setFailed(`Unexpected error happened updating ${issue.identifier}: ${error instanceof Error ? error.message : error}. Continuing with other issues`)
