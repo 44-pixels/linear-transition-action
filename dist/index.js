@@ -24976,16 +24976,17 @@ class Labeler {
         return await Promise.all(labels.map(async (label) => await this.client.issueAddLabel(issue.id, label.id)));
     }
     // Removes labels from issue. Does not delete label from Linear
+    // It deletes only labels that can find
     //
     // Accepts grouped labels in a format "version/v0.0.1"
     async removeLabels(issue, labelNames) {
-        const labels = await this.findLabels(labelNames);
-        const foundLabels = Object.keys(labels);
-        if (foundLabels.length !== labelNames.length) {
-            core.setFailed(`Found ${JSON.stringify(foundLabels)}, while expected ${JSON.stringify(labelNames)}`);
-            process.exit(1);
+        const filter = {};
+        filter.or = labelNames.map(label => this.buildFilterByName(label));
+        const response = await issue.labels({ filter });
+        if (response.nodes.length !== labelNames.length) {
+            core.warning('Number of labels found does not match with number of labels passed for removal. Continuing');
         }
-        await Promise.all(Object.values(labels).map(label => {
+        await Promise.all(response.nodes.map(label => {
             this.client.issueRemoveLabel(issue.id, label.id);
         }));
     }
@@ -25101,7 +25102,16 @@ class Labeler {
             .split('/')
             .reverse()
             .reduce((memo, label) => {
-            memo.name = { eq: label };
+            // I decided not to think about all the cases (* in the middle, or two *), cause we simply don't need them now.
+            if (label.endsWith('*')) {
+                memo.name = { startsWith: label.replace(/\*$/, '') };
+            }
+            else if (label.startsWith('*')) {
+                memo.name = { endsWith: label.replace(/^\*/, '') };
+            }
+            else {
+                memo.name = { eq: label };
+            }
             memo.parent = {};
             return memo.parent;
         }, filter);
@@ -25218,8 +25228,9 @@ class Runner {
             const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom);
             await this.updateIssues(issues, transitionToStateId, transitionFromStateIds);
         }
-        await this.addLabels(issues, inputs.addLabels);
+        // Order is important, cause we can delete by * (e.g. delete version/v* and add version/v2.0.0)
         await this.removeLabels(issues, inputs.removeLabels);
+        await this.addLabels(issues, inputs.addLabels);
     }
     async addLabels(issues, labels) {
         const labeler = new labeler_1.default(this.client, this.team);

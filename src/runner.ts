@@ -36,8 +36,9 @@ export default class Runner {
       await this.updateIssues(issues, transitionToStateId, transitionFromStateIds)
     }
 
-    await this.addLabels(issues, inputs.addLabels)
+    // Order is important, cause we can delete by * (e.g. delete version/v* and add version/v2.0.0)
     await this.removeLabels(issues, inputs.removeLabels)
+    await this.addLabels(issues, inputs.addLabels)
   }
 
   private async addLabels(issues: Issue[], labels: string[]): Promise<void> {

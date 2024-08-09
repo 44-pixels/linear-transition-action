@@ -43,28 +43,28 @@ jobs:
       - name: Test
         id: npm-ci-test
         run: npm run ci-test
-  #test-action:
-  #  name: GitHub Actions Test
-  #  runs-on: ubuntu-latest
+  test-action:
+    name: GitHub Actions Test
+    runs-on: ubuntu-latest
 
-  #  steps:
-  #    - name: Checkout
-  #      id: checkout
-  #      uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
 
-  #    - name: Test Local Action
-  #      id: test-action
-  #      uses: ./
-  #      with:
-  #        api_key: ${{ secrets.LINEAR_API_KEY }}
-  #        team_key: 'BE'
-  #        transition_to: 'In Progress'
-  #        transition_from: |-
-  #          Backlog
-  #          Todo
-  #        issue_identifiers: |-
-  #          BE-148
-  #        add_labels: |-
-  #          version/v1.0.0
-  #        remove_labels: |-
-  #          app
+      - name: Test Local Action
+        id: test-action
+        uses: ./
+        with:
+          api_key: ${{ secrets.LINEAR_API_KEY }}
+          team_key: 'BE'
+          transition_to: 'In Progress'
+          transition_from: |-
+            Backlog
+            Todo
+          issue_identifiers: |-
+            BE-148
+          add_labels: |-
+            version/v2.0.0
+          remove_labels: |-
+            version/v*

@@ -26,19 +26,21 @@ export default class Labeler {
   }
 
   // Removes labels from issue. Does not delete label from Linear
+  // It deletes only labels that can find
   //
   // Accepts grouped labels in a format "version/v0.0.1"
   async removeLabels(issue: Issue, labelNames: string[]): Promise<void> {
-    const labels = await this.findLabels(labelNames)
-    const foundLabels = Object.keys(labels)
+    const filter: IssueLabelFilter = {}
+    filter.or = labelNames.map<IssueLabelFilter>(label => this.buildFilterByName(label))
 
-    if (foundLabels.length !== labelNames.length) {
-      core.setFailed(`Found ${JSON.stringify(foundLabels)}, while expected ${JSON.stringify(labelNames)}`)
-      process.exit(1)
+    const response = await issue.labels({ filter })
+
+    if (response.nodes.length !== labelNames.length) {
+      core.warning('Number of labels found does not match with number of labels passed for removal. Continuing')
     }
 
     await Promise.all(
-      Object.values(labels).map(label => {
+      response.nodes.map(label => {
         this.client.issueRemoveLabel(issue.id, label.id)
       })
     )
@@ -183,7 +185,15 @@ export default class Labeler {
       .split('/')
       .reverse()
       .reduce<IssueLabelFilter>((memo, label) => {
-        memo.name = { eq: label }
+        // I decided not to think about all the cases (* in the middle, or two *), cause we simply don't need them now.
+        if (label.endsWith('*')) {
+          memo.name = { startsWith: label.replace(/\*$/, '') }
+        } else if (label.startsWith('*')) {
+          memo.name = { endsWith: label.replace(/^\*/, '') }
+        } else {
+          memo.name = { eq: label }
+        }
+
         memo.parent = {}
         return memo.parent
       }, filter)

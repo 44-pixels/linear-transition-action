@@ -38,7 +38,8 @@ describe('Labeler', () => {
     } as unknown as jest.Mocked<Team>
 
     mockIssue = {
-      id: 'issue-id'
+      id: 'issue-id',
+      labels: jest.fn()
     } as unknown as jest.Mocked<Issue>
 
     labeler = new Labeler(mockClient, mockTeam)
@@ -47,7 +48,7 @@ describe('Labeler', () => {
   describe('removeLabels', () => {
     it('removes label from the issue', async () => {
       const labelId = 'label-id'
-      mockTeam.labels.mockResolvedValue({ nodes: [{ id: labelId, name: 'label' }] } as any)
+      mockIssue.labels.mockResolvedValueOnce({ nodes: [{ id: labelId, name: 'label' }] } as any)
 
       await labeler.removeLabels(mockIssue, ['nested/label'])
 
@@ -55,13 +56,62 @@ describe('Labeler', () => {
     })
 
     describe('when label not found', () => {
-      it('cancels action', async () => {
-        mockTeam.labels.mockResolvedValue({ nodes: [] } as any)
+      it('warns but does not cancel', async () => {
+        mockIssue.labels.mockResolvedValueOnce({ nodes: [] } as any)
 
-        await expect(labeler.removeLabels(mockIssue, ['label'])).rejects.toThrow('process.exit: 1')
+        await labeler.removeLabels(mockIssue, ['label'])
 
-        expect(core.setFailed).toHaveBeenCalledWith('Found [], while expected ["label"]')
+        expect(core.warning).toHaveBeenCalledWith('Number of labels found does not match with number of labels passed for removal. Continuing')
         expect(mockClient.issueRemoveLabel).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('when removing labels with wildcard', () => {
+      it('builds appropriate filters', async () => {
+        mockIssue.labels.mockResolvedValueOnce({ nodes: [] } as any)
+
+        await labeler.removeLabels(mockIssue, ['label*', '*label', 'nested/*label', 'nested*/label*'])
+
+        expect(mockIssue.labels).toHaveBeenCalledWith({
+          filter: {
+            or: [
+              {
+                name: {
+                  startsWith: 'label'
+                },
+                parent: {}
+              },
+              {
+                name: {
+                  endsWith: 'label'
+                },
+                parent: {}
+              },
+              {
+                name: {
+                  endsWith: 'label'
+                },
+                parent: {
+                  name: {
+                    eq: 'nested'
+                  },
+                  parent: {}
+                }
+              },
+              {
+                name: {
+                  startsWith: 'label'
+                },
+                parent: {
+                  name: {
+                    startsWith: 'nested'
+                  },
+                  parent: {}
+                }
+              }
+            ]
+          }
+        })
       })
     })
   })
