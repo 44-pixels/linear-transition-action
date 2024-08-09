@@ -21,7 +21,7 @@ inputs:
     required: false
   transition_to:
     description: 'Name of the state you want issues to be transition to. Case sensitive.'
-    required: true
+    required: false
   transition_from:
     description: 'Whitelist of statuses the transition is allowed from. Case sensitive.'
     required: false
