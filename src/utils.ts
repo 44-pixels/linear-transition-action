@@ -22,7 +22,7 @@ export function parseInputs(): Inputs {
   const transitionTo = core.getInput(INPUT_KEYS.TRANSITION_TO)
   const issueNumbers = core
     .getInput(INPUT_KEYS.ISSUE_IDENTIFIERS)
-    .split('\n')
+    .split(',')
     .map(identifier => parseInt(identifier.replace(`${teamKey}-`, ''), 10))
 
   // Not required

@@ -30,7 +30,7 @@ describe('parseInputs', () => {
         case 'transition_to':
           return 'test_transition_to'
         case 'issue_identifiers':
-          return 'team-1\nteam-2\nteam-3'
+          return 'team-1,team-2,team-3'
         case 'add_labels':
           return 'label1\nlabel2'
         case 'remove_labels':
@@ -67,7 +67,7 @@ describe('parseInputs', () => {
         case 'transition_to':
           return 'test_transition_to'
         case 'issue_identifiers':
-          return 'team-1\nteam-2\nteam-3'
+          return 'team-1,team-2,team-3'
         default:
           return ''
       }
