@@ -25234,15 +25234,11 @@ class Runner {
     }
     async addLabels(issues, labels) {
         const labeler = new labeler_1.default(this.client, this.team);
-        for await (const issue of issues) {
-            labeler.addLabels(issue, labels);
-        }
+        await Promise.all(issues.map(async (issue) => labeler.addLabels(issue, labels)));
     }
     async removeLabels(issues, labels) {
         const labeler = new labeler_1.default(this.client, this.team);
-        for await (const issue of issues) {
-            labeler.removeLabels(issue, labels);
-        }
+        await Promise.all(issues.map(async (issue) => labeler.removeLabels(issue, labels)));
     }
     // Fetches Linear team
     // Fails action if not found

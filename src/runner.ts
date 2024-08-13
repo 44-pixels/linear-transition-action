@@ -44,17 +44,13 @@ export default class Runner {
   private async addLabels(issues: Issue[], labels: string[]): Promise<void> {
     const labeler = new Labeler(this.client, this.team)
 
-    for await (const issue of issues) {
-      labeler.addLabels(issue, labels)
-    }
+    await Promise.all(issues.map(async issue => labeler.addLabels(issue, labels)))
   }
 
   private async removeLabels(issues: Issue[], labels: string[]): Promise<void> {
     const labeler = new Labeler(this.client, this.team)
 
-    for await (const issue of issues) {
-      labeler.removeLabels(issue, labels)
-    }
+    await Promise.all(issues.map(async issue => labeler.removeLabels(issue, labels)))
   }
 
   // Fetches Linear team
