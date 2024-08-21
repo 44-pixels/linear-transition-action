@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/unbound-method */
 import * as core from '@actions/core'
-import { LinearClient, Team, Issue, TeamConnection, WorkflowStateConnection, IssueConnection } from '@linear/sdk'
+import { LinearClient, Team, Issue, TeamConnection, WorkflowStateConnection, IssueConnection, IssueLabel } from '@linear/sdk'
 import Runner, { Inputs } from '../src/runner'
 import Labeler from '../src/labeler'
 
@@ -18,6 +18,8 @@ describe('Runner', () => {
   let originalExit: typeof process.exit
   let addLabels: typeof jest.fn
   let removeLabels: typeof jest.fn
+  let findOrCreateLabels: typeof jest.fn
+  let foundLabels: IssueLabel[]
 
   beforeAll(() => {
     originalExit = process.exit
@@ -43,9 +45,13 @@ describe('Runner', () => {
 
     runner = new Runner(inputs.apiKey)
 
+    foundLabels = [{ id: 'label' }] as any
+
     addLabels = jest.fn()
     removeLabels = jest.fn()
+    findOrCreateLabels = jest.fn(() => foundLabels as any)
     ;(Labeler as jest.Mock).mockImplementation(() => ({
+      findOrCreateLabels,
       addLabels,
       removeLabels
     }))
@@ -87,11 +93,12 @@ describe('Runner', () => {
     expect(mockCore.info).not.toHaveBeenCalledWith('Issue T-7 updated!')
     expect(mockCore.warning).toHaveBeenCalledWith("Can't get state for issue T-7. Skipping")
 
-    expect(addLabels).toHaveBeenCalledWith(mockIssue1, ['bug', 'urgent'])
+    expect(findOrCreateLabels).toHaveBeenCalledWith(['bug', 'urgent'])
+    expect(addLabels).toHaveBeenCalledWith(mockIssue1, foundLabels)
     expect(removeLabels).toHaveBeenCalledWith(mockIssue1, ['wontfix'])
-    expect(addLabels).toHaveBeenCalledWith(mockIssue3, ['bug', 'urgent'])
+    expect(addLabels).toHaveBeenCalledWith(mockIssue3, foundLabels)
     expect(removeLabels).toHaveBeenCalledWith(mockIssue3, ['wontfix'])
-    expect(addLabels).toHaveBeenCalledWith(mockIssue7, ['bug', 'urgent'])
+    expect(addLabels).toHaveBeenCalledWith(mockIssue7, foundLabels)
     expect(removeLabels).toHaveBeenCalledWith(mockIssue7, ['wontfix'])
   })
 
@@ -164,7 +171,8 @@ describe('Runner', () => {
 
       expect(mockIssue.update).not.toHaveBeenCalled()
 
-      expect(addLabels).toHaveBeenCalledWith(mockIssue, ['bug', 'urgent'])
+      expect(findOrCreateLabels).toHaveBeenCalledWith(['bug', 'urgent'])
+      expect(addLabels).toHaveBeenCalledWith(mockIssue, foundLabels)
       expect(removeLabels).toHaveBeenCalledWith(mockIssue, ['wontfix'])
     })
   })

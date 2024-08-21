@@ -19,9 +19,7 @@ export default class Labeler {
   // If labels does not exist - creates them in a scope of a team
   //
   // Accepts grouped labels in a format "version/v0.0.1"
-  async addLabels(issue: Issue, labelNames: string[]): Promise<IssuePayload[]> {
-    const labels = await this.findOrCreateLabels(labelNames)
-
+  async addLabels(issue: Issue, labels: IssueLabel[]): Promise<IssuePayload[]> {
     return await Promise.all(labels.map(async label => await this.client.issueAddLabel(issue.id, label.id)))
   }
 
@@ -47,7 +45,7 @@ export default class Labeler {
   }
 
   // Find everything that's possible and tries to create the rest.
-  private async findOrCreateLabels(labelNames: string[]): Promise<IssueLabel[]> {
+  async findOrCreateLabels(labelNames: string[]): Promise<IssueLabel[]> {
     const foundLabels = await this.findLabels(labelNames)
 
     const notFoundLabelNames = labelNames.filter(name => !foundLabels[name])

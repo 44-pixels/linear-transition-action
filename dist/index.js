@@ -24971,8 +24971,7 @@ class Labeler {
     // If labels does not exist - creates them in a scope of a team
     //
     // Accepts grouped labels in a format "version/v0.0.1"
-    async addLabels(issue, labelNames) {
-        const labels = await this.findOrCreateLabels(labelNames);
+    async addLabels(issue, labels) {
         return await Promise.all(labels.map(async (label) => await this.client.issueAddLabel(issue.id, label.id)));
     }
     // Removes labels from issue. Does not delete label from Linear
@@ -25232,9 +25231,10 @@ class Runner {
         await this.removeLabels(issues, inputs.removeLabels);
         await this.addLabels(issues, inputs.addLabels);
     }
-    async addLabels(issues, labels) {
+    async addLabels(issues, labelNames) {
         const labeler = new labeler_1.default(this.client, this.team);
-        await Promise.all(issues.map(async (issue) => labeler.addLabels(issue, labels)));
+        const labels = await labeler.findOrCreateLabels(labelNames);
+        Promise.all(issues.map(async (issue) => labeler.addLabels(issue, labels)));
     }
     async removeLabels(issues, labels) {
         const labeler = new labeler_1.default(this.client, this.team);

@@ -41,10 +41,11 @@ export default class Runner {
     await this.addLabels(issues, inputs.addLabels)
   }
 
-  private async addLabels(issues: Issue[], labels: string[]): Promise<void> {
+  private async addLabels(issues: Issue[], labelNames: string[]): Promise<void> {
     const labeler = new Labeler(this.client, this.team)
 
-    await Promise.all(issues.map(async issue => labeler.addLabels(issue, labels)))
+    const labels = await labeler.findOrCreateLabels(labelNames)
+    Promise.all(issues.map(async issue => labeler.addLabels(issue, labels)))
   }
 
   private async removeLabels(issues: Issue[], labels: string[]): Promise<void> {

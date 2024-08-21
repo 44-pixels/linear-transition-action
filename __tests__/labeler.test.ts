@@ -116,12 +116,16 @@ describe('Labeler', () => {
     })
   })
 
-  describe('addLabels', () => {
-    it('adds labels to the issue', async () => {
+  describe('findOrCreateLabels', () => {
+    it('finds simple label', async () => {
       const labelId = 'label-id'
-      mockTeam.labels.mockResolvedValue({ nodes: [{ id: labelId, name: 'label' }] } as any)
+      const expectedLabels = { nodes: [{ id: labelId, name: 'label' }] }
+      mockTeam.labels.mockResolvedValue(expectedLabels as any)
 
-      await labeler.addLabels(mockIssue, ['label'])
+      const labels = await labeler.findOrCreateLabels(['label'])
+
+      expect(labels).toEqual(expectedLabels.nodes)
+
       const expectedFilter = {
         filter: {
           or: [{ name: { eq: 'label' }, parent: {} }]
@@ -129,14 +133,15 @@ describe('Labeler', () => {
       }
 
       expect(mockTeam.labels).toHaveBeenCalledWith(expectedFilter)
-      expect(mockClient.issueAddLabel).toHaveBeenCalledWith(mockIssue.id, labelId)
     })
 
-    it('adds nested labels to the issue', async () => {
+    it('works with nested labels', async () => {
       const labelId = 'label-id'
-      mockTeam.labels.mockResolvedValue({ nodes: [{ id: labelId, name: 'label' }] } as any)
+      const expectedLabels = { nodes: [{ id: labelId, name: 'label' }] }
+      mockTeam.labels.mockResolvedValue(expectedLabels as any)
 
-      await labeler.addLabels(mockIssue, ['nested/label'])
+      const labels = await labeler.findOrCreateLabels(['nested/label'])
+      expect(labels).toEqual(expectedLabels.nodes)
 
       const expectedFilter = {
         filter: {
@@ -145,7 +150,6 @@ describe('Labeler', () => {
       }
 
       expect(mockTeam.labels).toHaveBeenCalledWith(expectedFilter)
-      expect(mockClient.issueAddLabel).toHaveBeenCalledWith(mockIssue.id, labelId)
     })
 
     it('creates absent labels', async () => {
@@ -160,7 +164,8 @@ describe('Labeler', () => {
       mockClient.createIssueLabel.mockResolvedValueOnce(mockNestedLabelCreateResponse)
       mockClient.createIssueLabel.mockResolvedValueOnce(mockLabelCreateResponse)
 
-      await labeler.addLabels(mockIssue, ['nested/label'])
+      const labels = await labeler.findOrCreateLabels(['nested/label'])
+      expect(labels).toEqual([issueLabel])
 
       expect(mockClient.createIssueLabel).toHaveBeenCalledWith({
         teamId: mockTeam.id,
@@ -172,7 +177,6 @@ describe('Labeler', () => {
         name: 'label',
         parentId: 'new-nested-label-id'
       })
-      expect(mockClient.issueAddLabel).toHaveBeenCalledWith(mockIssue.id, 'new-label-id')
     })
 
     it('fails when cannot create label', async () => {
@@ -181,7 +185,7 @@ describe('Labeler', () => {
       const mockLabelCreateResponse: jest.Mocked<LinearFetch<IssueLabelPayload>> = { issueLabel: undefined } as any
       mockClient.createIssueLabel.mockResolvedValueOnce(mockLabelCreateResponse)
 
-      await expect(labeler.addLabels(mockIssue, ['nested'])).rejects.toThrow('process.exit: 1')
+      await expect(labeler.findOrCreateLabels(['nested'])).rejects.toThrow('process.exit: 1')
 
       expect(core.setFailed).toHaveBeenCalledWith('Label nested was not created! Failing')
       expect(mockClient.issueAddLabel).not.toHaveBeenCalled()
@@ -201,11 +205,19 @@ describe('Labeler', () => {
       mockClient.createIssueLabel.mockResolvedValueOnce(mockV2CreateResponse)
       mockClient.createIssueLabel.mockResolvedValueOnce(mockApprovedCreateResponse)
 
-      await labeler.addLabels(mockIssue, ['version/v2.0.0', 'approved', 'bug'])
+      const labels = await labeler.findOrCreateLabels(['version/v2.0.0', 'approved', 'bug'])
 
-      expect(mockClient.issueAddLabel).toHaveBeenCalledWith(mockIssue.id, 'bug-id')
-      expect(mockClient.issueAddLabel).toHaveBeenCalledWith(mockIssue.id, 'v2-id')
-      expect(mockClient.issueAddLabel).toHaveBeenCalledWith(mockIssue.id, 'approved-id')
+      expect(labels).toEqual([{ id: 'bug-id', name: 'bug' }, v2Label, approvedLabel])
+    })
+  })
+
+  describe('addLabels', () => {
+    it('adds labels to the issue', async () => {
+      const labelId = 'label-id'
+      mockTeam.labels.mockResolvedValue({ nodes: [{ id: labelId, name: 'label' }] } as any)
+
+      await labeler.addLabels(mockIssue, [{ id: labelId, name: 'label' }] as any)
+      expect(mockClient.issueAddLabel).toHaveBeenCalledWith(mockIssue.id, labelId)
     })
   })
 })
