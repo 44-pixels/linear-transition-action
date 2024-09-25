@@ -25273,6 +25273,7 @@ class Runner {
     // Fetches issues to update.
     // Fails action if any of provided issues not found on Linear
     async fetchIssues(issueNumbers) {
+        core.debug(`Trying to fetch issues with numbers: ${JSON.stringify(issueNumbers)}`);
         const response = await this.client.issues({
             filter: {
                 number: { in: issueNumbers },
