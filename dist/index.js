@@ -25222,7 +25222,7 @@ class Runner {
     // Runs steps in proper order
     async run(inputs) {
         this.team = await this.fetchTeam(inputs.teamKey);
-        const issues = await this.fetchIssues(inputs.issueNumbers);
+        const issues = await this.fetchIssues(inputs.issueNumbers, inputs.filterLabel);
         if (inputs.transitionTo) {
             const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom);
             await this.updateIssues(issues, transitionToStateId, transitionFromStateIds);
@@ -25272,14 +25272,23 @@ class Runner {
     }
     // Fetches issues to update.
     // Fails action if any of provided issues not found on Linear
-    async fetchIssues(issueNumbers) {
-        core.debug(`Trying to fetch issues with numbers: ${JSON.stringify(issueNumbers)}`);
-        const response = await this.client.issues({
-            filter: {
-                number: { in: issueNumbers },
-                team: { id: { eq: this.team.id } }
-            }
-        });
+    async fetchIssues(issueNumbers, filterLabel) {
+        if (issueNumbers.length === 0 && !filterLabel) {
+            core.setFailed('Neither issue numbers nor filter label provided.');
+            process.exit(1);
+        }
+        const filter = {
+            team: { id: { eq: this.team.id } }
+        };
+        if (issueNumbers.length > 0) {
+            core.debug(`Trying to fetch issues with numbers: ${JSON.stringify(issueNumbers)}`);
+            filter.number = { in: issueNumbers };
+        }
+        if (filterLabel) {
+            core.debug(`Trying to fetch issues label contains: ${filterLabel}`);
+            filter.labels = { name: { contains: filterLabel } };
+        }
+        const response = await this.client.issues({ filter });
         core.debug(`Issues found: ${JSON.stringify(response.nodes)}`);
         this.assertLength(response.nodes, issueNumbers);
         return response.nodes;
@@ -25361,7 +25370,8 @@ const INPUT_KEYS = {
     ISSUE_IDENTIFIERS: 'issue_identifiers',
     ADD_LABELS: 'add_labels',
     REMOVE_LABELS: 'remove_labels',
-    TRANSITION_FROM: 'transition_from'
+    TRANSITION_FROM: 'transition_from',
+    FILTER_LABEL: 'filter_label'
 };
 // Github actions only support string, number and boolean types.
 // For inputs that are not provided - it sets empty value (e.g. "" for string, not null or undefined)
@@ -25372,15 +25382,17 @@ function parseInputs() {
     const apiKey = core.getInput(INPUT_KEYS.API_KEY);
     const teamKey = core.getInput(INPUT_KEYS.TEAM_KEY);
     const transitionTo = core.getInput(INPUT_KEYS.TRANSITION_TO);
+    // Not required
+    const filterLabel = core.getInput(INPUT_KEYS.FILTER_LABEL);
     const issueNumbers = core
         .getInput(INPUT_KEYS.ISSUE_IDENTIFIERS)
         .split(',')
+        .filter(Boolean)
         .map(identifier => parseInt(identifier.replace(`${teamKey}-`, ''), 10));
-    // Not required
     const addLabels = core.getInput(INPUT_KEYS.ADD_LABELS).split('\n').filter(Boolean);
     const removeLabels = core.getInput(INPUT_KEYS.REMOVE_LABELS).split('\n').filter(Boolean);
     const transitionFrom = core.getInput(INPUT_KEYS.TRANSITION_FROM).split('\n').filter(Boolean);
-    return { apiKey, teamKey, transitionTo, issueNumbers, addLabels, removeLabels, transitionFrom };
+    return { apiKey, teamKey, transitionTo, issueNumbers, addLabels, removeLabels, transitionFrom, filterLabel };
 }
 
 

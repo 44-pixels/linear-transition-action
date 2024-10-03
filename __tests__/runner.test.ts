@@ -40,7 +40,8 @@ describe('Runner', () => {
       issueNumbers: [1, 3, 7],
       addLabels: ['bug', 'urgent'],
       removeLabels: ['wontfix'],
-      transitionFrom: ['Backlog']
+      transitionFrom: ['Backlog'],
+      filterLabel: 'label'
     }
 
     runner = new Runner(inputs.apiKey)
@@ -148,6 +149,20 @@ describe('Runner', () => {
 
     expect(mockCore.setFailed).toHaveBeenCalledWith('Number of resources fetched from Linear does not match number of provided identifiers. See debug logs for more details.')
     expect(mockCore.debug).toHaveBeenCalledWith('Issues found: []')
+    expect(process.exit).toHaveBeenCalledWith(1)
+  })
+
+  it('run method fails if neither issue numbers nor filter label provided', async () => {
+    const mockTeam: Team = { id: 'team-id' } as any
+    const mockTeamConnection: TeamConnection = { nodes: [mockTeam] } as any
+    mockLinearClient.prototype.teams.mockResolvedValue(mockTeamConnection)
+
+    inputs.issueNumbers = []
+    inputs.filterLabel = ''
+
+    await expect(runner.run(inputs)).rejects.toThrow('process.exit: 1')
+
+    expect(mockCore.setFailed).toHaveBeenCalledWith('Neither issue numbers nor filter label provided.')
     expect(process.exit).toHaveBeenCalledWith(1)
   })
 

@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import { Issue, LinearClient, Team } from '@linear/sdk'
 import Labeler from './labeler'
+import { IssueFilter } from '@linear/sdk/dist/_generated_documents'
 
 interface Measurable {
   length: number
@@ -14,6 +15,7 @@ export interface Inputs {
   addLabels: string[]
   removeLabels: string[]
   transitionFrom: string[]
+  filterLabel: string
 }
 
 // This is the main runner class
@@ -29,7 +31,7 @@ export default class Runner {
   // Runs steps in proper order
   async run(inputs: Inputs): Promise<void> {
     this.team = await this.fetchTeam(inputs.teamKey)
-    const issues = await this.fetchIssues(inputs.issueNumbers)
+    const issues = await this.fetchIssues(inputs.issueNumbers, inputs.filterLabel)
 
     if (inputs.transitionTo) {
       const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom)
@@ -93,14 +95,27 @@ export default class Runner {
 
   // Fetches issues to update.
   // Fails action if any of provided issues not found on Linear
-  private async fetchIssues(issueNumbers: number[]): Promise<Issue[]> {
-    core.debug(`Trying to fetch issues with numbers: ${JSON.stringify(issueNumbers)}`)
-    const response = await this.client.issues({
-      filter: {
-        number: { in: issueNumbers },
-        team: { id: { eq: this.team.id } }
-      }
-    })
+  private async fetchIssues(issueNumbers: number[], filterLabel: string): Promise<Issue[]> {
+    if (issueNumbers.length === 0 && !filterLabel) {
+      core.setFailed('Neither issue numbers nor filter label provided.')
+      process.exit(1)
+    }
+
+    const filter: IssueFilter = {
+      team: { id: { eq: this.team.id } }
+    }
+
+    if (issueNumbers.length > 0) {
+      core.debug(`Trying to fetch issues with numbers: ${JSON.stringify(issueNumbers)}`)
+      filter.number = { in: issueNumbers }
+    }
+
+    if (filterLabel) {
+      core.debug(`Trying to fetch issues label contains: ${filterLabel}`)
+      filter.labels = { name: { contains: filterLabel } }
+    }
+
+    const response = await this.client.issues({ filter })
 
     core.debug(`Issues found: ${JSON.stringify(response.nodes)}`)
     this.assertLength(response.nodes, issueNumbers)

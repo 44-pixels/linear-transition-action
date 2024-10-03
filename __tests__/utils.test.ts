@@ -37,6 +37,8 @@ describe('parseInputs', () => {
           return 'label3\nlabel4'
         case 'transition_from':
           return 'from1\nfrom2'
+        case 'filter_label':
+          return 'label_substring'
         default:
           return ''
       }
@@ -51,7 +53,8 @@ describe('parseInputs', () => {
       issueNumbers: [1, 2, 3],
       addLabels: ['label1', 'label2'],
       removeLabels: ['label3', 'label4'],
-      transitionFrom: ['from1', 'from2']
+      transitionFrom: ['from1', 'from2'],
+      filterLabel: 'label_substring'
     })
   })
 
@@ -67,7 +70,7 @@ describe('parseInputs', () => {
         case 'transition_to':
           return 'test_transition_to'
         case 'issue_identifiers':
-          return 'team-1,team-2,team-3'
+          return ''
         default:
           return ''
       }
@@ -79,10 +82,11 @@ describe('parseInputs', () => {
       apiKey: 'test_api_key',
       teamKey: 'team',
       transitionTo: 'test_transition_to',
-      issueNumbers: [1, 2, 3],
+      issueNumbers: [],
       addLabels: [],
       removeLabels: [],
-      transitionFrom: []
+      transitionFrom: [],
+      filterLabel: ''
     })
   })
 })
