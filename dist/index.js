@@ -25290,7 +25290,9 @@ class Runner {
         }
         const response = await this.client.issues({ filter });
         core.debug(`Issues found: ${JSON.stringify(response.nodes)}`);
-        this.assertLength(response.nodes, issueNumbers);
+        if (!filterLabel) {
+            this.assertLength(response.nodes, issueNumbers);
+        }
         return response.nodes;
     }
     async updateIssues(issues, transitionToId, transitionFromIds) {

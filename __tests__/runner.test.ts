@@ -11,6 +11,7 @@ jest.mock('../src/labeler')
 
 const mockCore = core as jest.Mocked<typeof core>
 const mockLinearClient = LinearClient as jest.MockedClass<typeof LinearClient>
+type InputKey = keyof Inputs
 
 describe('Runner', () => {
   let runner: Runner
@@ -62,7 +63,17 @@ describe('Runner', () => {
     jest.clearAllMocks()
   })
 
-  it('run method completes successfully with valid inputs', async () => {
+  it.each([
+    {
+      input: 'filterLabel' as InputKey,
+      value: ''
+    },
+    {
+      input: 'issueNumbers' as InputKey,
+      value: []
+    }
+  ])('run method completes successfully with valid inputs', async ({ input, value }) => {
+    inputs[input] = value as any
     const mockTeam: Team = { id: 'team-id' } as any
     const mockIssue1: Issue = { id: 'issue-id', identifier: 'T-1', state: { id: 'backlog-id', name: 'Backlog' }, update: jest.fn() } as any
     const mockIssue3: Issue = { id: 'issue-id', identifier: 'T-3', state: { id: 'in-progress-id', name: 'In Progress' }, update: jest.fn() } as any
@@ -130,7 +141,8 @@ describe('Runner', () => {
     expect(process.exit).toHaveBeenCalledWith(1)
   })
 
-  it('run method fails with invalid issue numbers', async () => {
+  it('run method fails with invalid issue numbers if filter_label is blank', async () => {
+    inputs.filterLabel = ''
     const mockTeam: Team = { id: 'team-id' } as any
     const mockTeamConnection: TeamConnection = { nodes: [mockTeam] } as any
     const mockWorkflowStateConnection: WorkflowStateConnection = {
