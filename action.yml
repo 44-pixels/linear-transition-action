@@ -12,7 +12,10 @@ inputs:
     required: true
   issue_identifiers:
     description: 'One or more issues to update, for example see ./github/workflows/ci.yml'
-    required: true
+    required: false
+  filter_label:
+    description: 'Substring of the label to filter issues by. Case sensitive.'
+    required: false
   add_labels:
     description: 'Labels names to add. Case sensitive.'
     required: false
