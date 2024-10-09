@@ -8,7 +8,7 @@ inputs:
     description: 'Linear Personal API key'
     required: true
   team_key:
-    description: 'Linear team key, usually issues are created with team key prefix, e.g. CHAT-137'
+    description: "One or more Linear's team key, usually issues are created with team key prefix, e.g. CHAT-137. Comma separated"
     required: true
   issue_identifiers:
     description: 'One or more issues to update, for example see ./github/workflows/ci.yml'

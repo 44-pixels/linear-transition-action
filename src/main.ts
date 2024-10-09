@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 
-import Runner from './runner'
+import { default as Runner, Inputs } from './runner'
 import { parseInputs } from './utils'
 
 /**
@@ -9,9 +9,16 @@ import { parseInputs } from './utils'
  */
 export async function run(): Promise<void> {
   try {
-    const inputs = parseInputs()
-    const runner = new Runner(inputs.apiKey)
-    await runner.run(inputs)
+    const inputs: Inputs[] = parseInputs()
+
+    const runners: Promise<void>[] = inputs.map(async input => {
+      const runner = new Runner(input.apiKey)
+      return runner.run(input)
+    })
+
+    await Promise.all(runners)
+
+    core.info('Action completed successfully')
   } catch (error) {
     core.setFailed(`Action failed: ${error instanceof Error ? error.message : error}`)
   }
