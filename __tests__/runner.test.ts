@@ -114,6 +114,47 @@ describe('Runner', () => {
     expect(removeLabels).toHaveBeenCalledWith(mockIssue7, ['wontfix'])
   })
 
+  it('survives an error during issue update but fails whole run', async () => {
+    const mockTeam: Team = { id: 'team-id' } as any
+    const mockIssue: Issue = {
+      id: 'issue-id',
+      identifier: 'T-1',
+      state: { id: 'backlog-id', name: 'Backlog' },
+      update: jest.fn().mockRejectedValue(new Error('update error'))
+    } as any
+
+    const mockTeamConnection: TeamConnection = { nodes: [mockTeam] } as any
+    const mockWorkflowStateConnection: WorkflowStateConnection = {
+      nodes: [
+        { id: 'in-progress-id', name: 'In Progress' },
+        { id: 'backlog-id', name: 'Backlog' }
+      ]
+    } as any
+    const mockIssueConnection: IssueConnection = { nodes: [mockIssue] } as any
+
+    mockLinearClient.prototype.teams.mockResolvedValue(mockTeamConnection)
+    mockLinearClient.prototype.workflowStates.mockResolvedValue(mockWorkflowStateConnection)
+    mockLinearClient.prototype.issues.mockResolvedValue(mockIssueConnection)
+
+    await runner.run(inputs)
+
+    expect(mockCore.setFailed).toHaveBeenCalledWith('Unexpected error happened updating T-1: update error. Continuing with other issues')
+  })
+
+  it('finishes fast if no issues found', async () => {
+    const mockTeam: Team = { id: 'team-id' } as any
+
+    const mockTeamConnection: TeamConnection = { nodes: [mockTeam] } as any
+    const mockIssueConnection: IssueConnection = { nodes: [] } as any
+
+    mockLinearClient.prototype.teams.mockResolvedValue(mockTeamConnection)
+    mockLinearClient.prototype.issues.mockResolvedValue(mockIssueConnection)
+
+    await runner.run(inputs)
+
+    expect(mockCore.info).toHaveBeenCalledWith('🙊 No issues found')
+  })
+
   it('run method fails with invalid team key', async () => {
     const mockTeamConnection: TeamConnection = { nodes: [] } as any
 
@@ -129,9 +170,12 @@ describe('Runner', () => {
   it('run method fails with invalid state names', async () => {
     const mockTeam: Team = { id: 'team-id' } as any
     const mockTeamConnection: TeamConnection = { nodes: [mockTeam] } as any
+    const mockIssue: Issue = { id: 'issue-id', identifier: 'T-1', state: { id: 'backlog-id', name: 'Backlog' }, update: jest.fn() } as any
+    const mockIssueConnection: IssueConnection = { nodes: [mockIssue] } as any
     const mockWorkflowStateConnection: WorkflowStateConnection = { nodes: [] } as any
 
     mockLinearClient.prototype.teams.mockResolvedValue(mockTeamConnection)
+    mockLinearClient.prototype.issues.mockResolvedValue(mockIssueConnection)
     mockLinearClient.prototype.workflowStates.mockResolvedValue(mockWorkflowStateConnection)
 
     await expect(runner.run(inputs)).rejects.toThrow('process.exit: 1')

@@ -14,7 +14,7 @@ describe('run', () => {
   })
 
   it('should call parseInputs and Runner with correct parameters', async () => {
-    const mockInputs = { apiKey: 'test-api-key' }
+    const mockInputs = [{ apiKey: 'test-api-key' }]
     const mockRunnerInstance = { run: jest.fn() }
 
     // Mock implementations
@@ -24,8 +24,10 @@ describe('run', () => {
     await run()
 
     expect(parseInputs).toHaveBeenCalled()
-    expect(Runner).toHaveBeenCalledWith(mockInputs.apiKey)
-    expect(mockRunnerInstance.run).toHaveBeenCalledWith(mockInputs)
+    for (const input of mockInputs) {
+      expect(Runner).toHaveBeenCalledWith(input.apiKey)
+      expect(mockRunnerInstance.run).toHaveBeenCalledWith(input)
+    }
   })
 
   it('should call core.setFailed when an error is thrown', async () => {

@@ -31,7 +31,13 @@ export default class Runner {
   // Runs steps in proper order
   async run(inputs: Inputs): Promise<void> {
     this.team = await this.fetchTeam(inputs.teamKey)
+
     const issues = await this.fetchIssues(inputs.issueNumbers, inputs.filterLabel)
+
+    if (issues.length === 0) {
+      core.info('🙊 No issues found')
+      return
+    }
 
     if (inputs.transitionTo) {
       const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom)

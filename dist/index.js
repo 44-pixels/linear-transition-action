@@ -25165,8 +25165,12 @@ const utils_1 = __nccwpck_require__(1314);
 async function run() {
     try {
         const inputs = (0, utils_1.parseInputs)();
-        const runner = new runner_1.default(inputs.apiKey);
-        await runner.run(inputs);
+        const runners = inputs.map(async (input) => {
+            const runner = new runner_1.default(input.apiKey);
+            return runner.run(input);
+        });
+        await Promise.all(runners);
+        core.info('Action completed successfully');
     }
     catch (error) {
         core.setFailed(`Action failed: ${error instanceof Error ? error.message : error}`);
@@ -25223,6 +25227,10 @@ class Runner {
     async run(inputs) {
         this.team = await this.fetchTeam(inputs.teamKey);
         const issues = await this.fetchIssues(inputs.issueNumbers, inputs.filterLabel);
+        if (issues.length === 0) {
+            core.info('🙊 No issues found');
+            return;
+        }
         if (inputs.transitionTo) {
             const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom);
             await this.updateIssues(issues, transitionToStateId, transitionFromStateIds);
@@ -25382,19 +25390,32 @@ const INPUT_KEYS = {
 function parseInputs() {
     // Required
     const apiKey = core.getInput(INPUT_KEYS.API_KEY);
-    const teamKey = core.getInput(INPUT_KEYS.TEAM_KEY);
+    const teamKeys = core.getInput(INPUT_KEYS.TEAM_KEY).split(',').filter(Boolean);
     const transitionTo = core.getInput(INPUT_KEYS.TRANSITION_TO);
     // Not required
-    const filterLabel = core.getInput(INPUT_KEYS.FILTER_LABEL);
-    const issueNumbers = core
-        .getInput(INPUT_KEYS.ISSUE_IDENTIFIERS)
-        .split(',')
-        .filter(Boolean)
-        .map(identifier => parseInt(identifier.replace(`${teamKey}-`, ''), 10));
     const addLabels = core.getInput(INPUT_KEYS.ADD_LABELS).split('\n').filter(Boolean);
     const removeLabels = core.getInput(INPUT_KEYS.REMOVE_LABELS).split('\n').filter(Boolean);
     const transitionFrom = core.getInput(INPUT_KEYS.TRANSITION_FROM).split('\n').filter(Boolean);
-    return { apiKey, teamKey, transitionTo, issueNumbers, addLabels, removeLabels, transitionFrom, filterLabel };
+    const filterLabel = core.getInput(INPUT_KEYS.FILTER_LABEL);
+    const issueIdentifiers = core.getInput(INPUT_KEYS.ISSUE_IDENTIFIERS).split(',').filter(Boolean);
+    if (!filterLabel && issueIdentifiers.length === 0) {
+        core.setFailed('Neither issue numbers nor filter label provided.');
+        process.exit(1);
+    }
+    const inputs = teamKeys.map(teamKey => {
+        const issueNumbers = issueIdentifiers
+            .filter(identifier => identifier.startsWith(`${teamKey}-`))
+            .map(identifier => {
+            return parseInt(identifier.replace(`${teamKey}-`, ''), 10);
+        });
+        return { apiKey, teamKey, transitionTo, issueNumbers, addLabels, removeLabels, transitionFrom, filterLabel };
+    });
+    if (filterLabel && issueIdentifiers.length === 0) {
+        return inputs;
+    }
+    else {
+        return inputs.filter(input => input.issueNumbers.length > 0);
+    }
 }
 
 
