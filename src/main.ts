@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 
-import { default as Runner, Inputs } from './runner'
+import Runner, { Inputs } from './runner'
 import { parseInputs } from './utils'
 
 /**

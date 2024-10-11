@@ -25227,6 +25227,10 @@ class Runner {
     async run(inputs) {
         this.team = await this.fetchTeam(inputs.teamKey);
         const issues = await this.fetchIssues(inputs.issueNumbers, inputs.filterLabel);
+        if (issues.length === 0) {
+            core.info('🙊 No issues found');
+            return;
+        }
         if (inputs.transitionTo) {
             const { transitionToStateId, transitionFromStateIds } = await this.fetchStates(inputs.transitionTo, inputs.transitionFrom);
             await this.updateIssues(issues, transitionToStateId, transitionFromStateIds);
@@ -25394,7 +25398,11 @@ function parseInputs() {
     const transitionFrom = core.getInput(INPUT_KEYS.TRANSITION_FROM).split('\n').filter(Boolean);
     const filterLabel = core.getInput(INPUT_KEYS.FILTER_LABEL);
     const issueIdentifiers = core.getInput(INPUT_KEYS.ISSUE_IDENTIFIERS).split(',').filter(Boolean);
-    return teamKeys.map(teamKey => {
+    if (!filterLabel && issueIdentifiers.length === 0) {
+        core.setFailed('Neither issue numbers nor filter label provided.');
+        process.exit(1);
+    }
+    const inputs = teamKeys.map(teamKey => {
         const issueNumbers = issueIdentifiers
             .filter(identifier => identifier.startsWith(`${teamKey}-`))
             .map(identifier => {
@@ -25402,6 +25410,12 @@ function parseInputs() {
         });
         return { apiKey, teamKey, transitionTo, issueNumbers, addLabels, removeLabels, transitionFrom, filterLabel };
     });
+    if (filterLabel && issueIdentifiers.length === 0) {
+        return inputs;
+    }
+    else {
+        return inputs.filter(input => input.issueNumbers.length > 0);
+    }
 }
 
 
