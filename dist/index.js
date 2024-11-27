@@ -25079,20 +25079,22 @@ class Labeler {
     // So, for example for label 'test/fest/v0.0.1' we have to provide such filter
     //
     // {
-    //   name: {
-    //     eq: "v0.0.1"
-    //   },
-    //   parent: {
+    //   and:[{
     //     name: {
-    //       eq: "fest",
+    //       eq: "v0.0.1"
     //     },
     //     parent: {
     //       name: {
-    //         eq: "test"
+    //         eq: "fest",
     //       },
-    //       parent: {}
-    //     }
-    //   }
+    //       parent: {
+    //         name: {
+    //           eq: "test"
+    //         },
+    //         parent: {}
+    //       }
+    //    }
+    //   }]
     // }
     //
     buildFilterByName(name) {
@@ -25114,7 +25116,7 @@ class Labeler {
             memo.parent = {};
             return memo.parent;
         }, filter);
-        return filter;
+        return { and: [filter] };
     }
 }
 exports["default"] = Labeler;

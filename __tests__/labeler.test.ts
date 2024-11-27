@@ -76,38 +76,54 @@ describe('Labeler', () => {
           filter: {
             or: [
               {
-                name: {
-                  startsWith: 'label'
-                },
-                parent: {}
+                and: [
+                  {
+                    name: {
+                      startsWith: 'label'
+                    },
+                    parent: {}
+                  }
+                ]
               },
               {
-                name: {
-                  endsWith: 'label'
-                },
-                parent: {}
+                and: [
+                  {
+                    name: {
+                      endsWith: 'label'
+                    },
+                    parent: {}
+                  }
+                ]
               },
               {
-                name: {
-                  endsWith: 'label'
-                },
-                parent: {
-                  name: {
-                    eq: 'nested'
-                  },
-                  parent: {}
-                }
+                and: [
+                  {
+                    name: {
+                      endsWith: 'label'
+                    },
+                    parent: {
+                      name: {
+                        eq: 'nested'
+                      },
+                      parent: {}
+                    }
+                  }
+                ]
               },
               {
-                name: {
-                  startsWith: 'label'
-                },
-                parent: {
-                  name: {
-                    startsWith: 'nested'
-                  },
-                  parent: {}
-                }
+                and: [
+                  {
+                    name: {
+                      startsWith: 'label'
+                    },
+                    parent: {
+                      name: {
+                        startsWith: 'nested'
+                      },
+                      parent: {}
+                    }
+                  }
+                ]
               }
             ]
           }
@@ -128,7 +144,16 @@ describe('Labeler', () => {
 
       const expectedFilter = {
         filter: {
-          or: [{ name: { eq: 'label' }, parent: {} }]
+          or: [
+            {
+              and: [
+                {
+                  name: { eq: 'label' },
+                  parent: {}
+                }
+              ]
+            }
+          ]
         }
       }
 
@@ -145,7 +170,19 @@ describe('Labeler', () => {
 
       const expectedFilter = {
         filter: {
-          or: [{ name: { eq: 'label' }, parent: { name: { eq: 'nested' }, parent: {} } }]
+          or: [
+            {
+              and: [
+                {
+                  name: { eq: 'label' },
+                  parent: {
+                    name: { eq: 'nested' },
+                    parent: {}
+                  }
+                }
+              ]
+            }
+          ]
         }
       }
 
