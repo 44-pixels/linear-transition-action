@@ -25319,6 +25319,10 @@ class Runner {
                 core.warning(`Can't get state for issue ${issue.identifier}. Skipping`);
                 return;
             }
+            if (state.id === transitionToId) {
+                core.info(`Issue ${issue.identifier} is already in target state (${state.name}). Skipping`);
+                return;
+            }
             if (transitionFromIds.length > 0 && !transitionFromIds.includes(state.id)) {
                 core.warning(`Issue ${issue.identifier} is not in whitelisted state (${state.name}). Skipping`);
                 return;
