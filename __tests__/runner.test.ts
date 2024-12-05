@@ -73,11 +73,13 @@ describe('Runner', () => {
       value: []
     }
   ])('run method completes successfully with valid inputs', async ({ input, value }) => {
+    inputs.issueNumbers = [1, 3, 7, 11]
     inputs[input] = value as any
     const mockTeam: Team = { id: 'team-id' } as any
     const mockIssue1: Issue = { id: 'issue-id', identifier: 'T-1', state: { id: 'backlog-id', name: 'Backlog' }, update: jest.fn() } as any
-    const mockIssue3: Issue = { id: 'issue-id', identifier: 'T-3', state: { id: 'in-progress-id', name: 'In Progress' }, update: jest.fn() } as any
+    const mockIssue3: Issue = { id: 'issue-id', identifier: 'T-3', state: { id: 'done-id', name: 'Done' }, update: jest.fn() } as any
     const mockIssue7: Issue = { id: 'issue-id', identifier: 'T-7', state: undefined, update: jest.fn() } as any
+    const mockIssue11: Issue = { id: 'issue-11', identifier: 'T-11', state: { id: 'in-progress-id', name: 'In Progress' }, update: jest.fn() } as any
 
     const mockTeamConnection: TeamConnection = { nodes: [mockTeam] } as any
     const mockWorkflowStateConnection: WorkflowStateConnection = {
@@ -86,7 +88,7 @@ describe('Runner', () => {
         { id: 'backlog-id', name: 'Backlog' }
       ]
     } as any
-    const mockIssueConnection: IssueConnection = { nodes: [mockIssue1, mockIssue3, mockIssue7] } as any
+    const mockIssueConnection: IssueConnection = { nodes: [mockIssue1, mockIssue3, mockIssue7, mockIssue11] } as any
 
     mockLinearClient.prototype.teams.mockResolvedValue(mockTeamConnection)
     mockLinearClient.prototype.workflowStates.mockResolvedValue(mockWorkflowStateConnection)
@@ -97,13 +99,17 @@ describe('Runner', () => {
     expect(mockIssue1.update).toHaveBeenCalledWith({ stateId: 'in-progress-id' })
     expect(mockIssue3.update).not.toHaveBeenCalled()
     expect(mockIssue7.update).not.toHaveBeenCalled()
+    expect(mockIssue11.update).not.toHaveBeenCalled()
 
     expect(mockCore.debug).toHaveBeenCalled()
-    expect(mockCore.info).toHaveBeenCalledWith('Issue T-1 updated!')
+    expect(mockCore.info).toHaveBeenCalledTimes(2)
+    expect(mockCore.info.mock.calls).toContainEqual(['Issue T-1 updated!'])
+    expect(mockCore.info.mock.calls).toContainEqual(['Issue T-11 is already in target state (In Progress). Skipping'])
     expect(mockCore.info).not.toHaveBeenCalledWith('Issue T-3 updated!')
-    expect(mockCore.warning).toHaveBeenCalledWith('Issue T-3 is not in whitelisted state (In Progress). Skipping')
     expect(mockCore.info).not.toHaveBeenCalledWith('Issue T-7 updated!')
-    expect(mockCore.warning).toHaveBeenCalledWith("Can't get state for issue T-7. Skipping")
+    expect(mockCore.warning).toHaveBeenCalledTimes(2)
+    expect(mockCore.warning.mock.calls).toContainEqual(['Issue T-3 is not in whitelisted state (Done). Skipping'])
+    expect(mockCore.warning.mock.calls).toContainEqual(["Can't get state for issue T-7. Skipping"])
 
     expect(findOrCreateLabels).toHaveBeenCalledWith(['bug', 'urgent'])
     expect(addLabels).toHaveBeenCalledWith(mockIssue1, foundLabels)
@@ -112,6 +118,8 @@ describe('Runner', () => {
     expect(removeLabels).toHaveBeenCalledWith(mockIssue3, ['wontfix'])
     expect(addLabels).toHaveBeenCalledWith(mockIssue7, foundLabels)
     expect(removeLabels).toHaveBeenCalledWith(mockIssue7, ['wontfix'])
+    expect(addLabels).toHaveBeenCalledWith(mockIssue11, foundLabels)
+    expect(removeLabels).toHaveBeenCalledWith(mockIssue11, ['wontfix'])
   })
 
   it('survives an error during issue update but fails whole run', async () => {
